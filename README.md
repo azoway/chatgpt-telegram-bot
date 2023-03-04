@@ -4,7 +4,7 @@
 1. 准备工作
 - Node.js版本 18+
 - 登录[ChatGPT webapp](https://chat.openai.com/) 
-- 获取[accessToken](https://chat.openai.com/api/auth/session)
+- 获取[accessToken](https://chat.openai.com/api/auth/session), 有效期持续数日
 - 申请[Telegram bot api token](https://t.me/BotFather)
   
 2. 克隆项目，安装依赖
