@@ -7,7 +7,7 @@ This is a nodejs code for creating a Telegram bot that uses the ChatGPT API to g
 git clone https://github.com/azoway/chatgpt-telegram-bot
 cd chatgpt-telegram-bot
 npm install
-vim index.js
+vi index.js
 node index.js
 ``` 
   
