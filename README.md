@@ -3,7 +3,7 @@ This is a nodejs code for creating a Telegram bot that uses the ChatGPT API to g
 
 ###### Installation:
     ```bash
-    git clone https://github.com/azoway/telegpt
+    git clone https://github.com/azoway/chatgpt-telegram-bot
     cd telegpt
     npm install
     ``` 
