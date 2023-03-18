@@ -6,7 +6,7 @@ This is a nodejs code for creating a Telegram bot that uses the ChatGPT API to g
     git clone https://github.com/azoway/telegpt
     cd telegpt
     npm install
-    ```
+    ``` 
     
 ###### Usage:
 1. Obtain a Telegram bot token from BotFather and replace the value of telegram_bot_token with your token.
