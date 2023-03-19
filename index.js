@@ -11,6 +11,7 @@ const UNAUTHORIZED_MSG = (userId) => `${userId} Unauthorized user.`;
 const CLEARED_MSG = 'The conversation has been cleared.';
 const WAITING_MSG = 'I am organizing my thoughts, please wait a moment.';
 const ERROR_MSG = 'An error has occurred. Please try again later. If you are an administrator, please check the log.';
+const RETRY_COUNT = 3;
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 const api = new ChatGPTAPI({ apiKey: API_KEY });
@@ -21,7 +22,7 @@ bot.on('text', async ({ text, chat: { id: chatId }, message_id: messageId }) => 
   await handleMessage({ text, chatId, messageId });
 });
 
-async function handleMessage({ text, chatId, messageId }) {
+async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
   if (typeof text !== 'string') return;
 
   if (!ALLOWED_USER_IDS.includes(chatId)) {
@@ -37,17 +38,26 @@ async function handleMessage({ text, chatId, messageId }) {
 
   const [parentId = null, tempId = null] = (messageIds.get(chatId) ?? '').split(',');
 
-  const [response, tempMessage] = await Promise.all([
-    parentId ? api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : api.sendMessage(text.replace(PREFIX, '')),
-    bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId })
-  ]);
-
-  console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
+  let response, tempMessage;
+  try {
+    tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
+    response = parentId ? await api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : await api.sendMessage(text.replace(PREFIX, ''));
+    console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
+    await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
+  } catch (err) {
+    console.error(`${new Date().toLocaleString()} -- Error in AI response to <${text}>: ${err.message}`);
+    if (retryCount < RETRY_COUNT) {
+      console.log(`${new Date().toLocaleString()} -- Retrying AI response to <${text}>`);
+      handleMessage({ text, chatId, messageId }, retryCount + 1);
+      return;
+    } else {
+      console.error(`${new Date().toLocaleString()} -- Failed to get AI response after ${RETRY_COUNT} attempts.`);
+      await bot.sendMessage(chatId, ERROR_MSG);
+    }
+  }
 
   const newMsgId = `${response.id},${tempMessage.message_id}`;
   messageIds.set(chatId, newMsgId);
-
-  await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
 
   setTimeout(() => {
     messageIds.delete(chatId);
