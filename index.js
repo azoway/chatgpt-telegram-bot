@@ -1,74 +1,55 @@
-import TelegramBot from 'node-telegram-bot-api'
-import { ChatGPTAPI } from 'chatgpt'
+import TelegramBot from 'node-telegram-bot-api';
+import { ChatGPTAPI } from 'chatgpt';
 
-//↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓EDIT_EDIT_EDIT↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-const group_name = 'chat'
-const telegram_bot_token='5831123456:AAXXXXXXXXXXXXXXXXXXXXXX-9ZHT4'
-const apiKey='sk-xxxxxxxxxxxxxxxxxxxxxxxxxx'
-const allowedUserIds = [12345678, 23456789, -1001234567, -911123456];
-//↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑EDIT_EDIT_EDIT↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+const GROUP_NAME = 'chat';
+const TELEGRAM_BOT_TOKEN = '5831123456:AAXXXXXXXXXXXXXXXXXXXXXX-9ZHT4';
+const API_KEY = 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxx';
+const ALLOWED_USER_IDS = [12345678, 23456789, -1001234567, -911123456];
+const TIMEOUT = 10 * 60 * 1000;
+const PREFIX = GROUP_NAME ? new RegExp(`${GROUP_NAME}`) : /\/gpt/;
+const UNAUTHORIZED_MSG = (userId) => `${userId} Unauthorized user.`;
+const CLEARED_MSG = 'The conversation has been cleared.';
+const WAITING_MSG = 'I am organizing my thoughts, please wait a moment.';
+const ERROR_MSG = 'An error has occurred. Please try again later. If you are an administrator, please check the log.';
 
-const prefix = group_name ? '/' + group_name : '/gpt'
-const bot = new TelegramBot(telegram_bot_token, { polling: true });
-console.log(new Date().toLocaleString(), '--Bot has been started...');
-
-const api = new ChatGPTAPI({ apiKey })
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const api = new ChatGPTAPI({ apiKey: API_KEY });
 const messageIds = new Map();
 
-bot.on('text', async (msg) => {
-  console.log(new Date().toLocaleString(), '--Received message from id:', msg.chat.id, ':', msg.text);
-  await msgHandler(msg);
+bot.on('text', async ({ text, chat: { id: chatId }, message_id: messageId }) => {
+  console.log(`${new Date().toLocaleString()} -- Received message from id: ${chatId}: ${text}`);
+  await handleMessage({ text, chatId, messageId });
 });
 
-async function msgHandler(msg) {
-  if (typeof msg.text !== 'string') {
-    return;
-  }
-  
-  if (!allowedUserIds.includes(msg.chat.id)) {
-    await bot.sendMessage(msg.chat.id, msg.chat.id + ' Unauthorized user.');
+async function handleMessage({ text, chatId, messageId }) {
+  if (typeof text !== 'string') return;
+
+  if (!ALLOWED_USER_IDS.includes(chatId)) {
+    await bot.sendMessage(chatId, UNAUTHORIZED_MSG(chatId));
     return;
   }
 
-  const timeoutId = setTimeout(() => {
-    messageIds.delete(msg.chat.id);
-  }, 10 * 60 * 1000);
-  
-  switch (true) {
-    case msg.text.startsWith('/reset'):
-      messageIds.delete(msg.chat.id);
-      await bot.sendMessage(msg.chat.id, 'The conversation has been cleared.');
-      break;
-    case msg.text.length >= 2:
-      await chatGpt(msg);
-      break;
-    default:
-      await bot.sendMessage(msg.chat.id, 'I am not quite sure what you mean.');
-      break;
+  if (text === '/reset') {
+    messageIds.delete(chatId);
+    await bot.sendMessage(chatId, CLEARED_MSG);
+    return;
   }
-}
 
-async function chatGpt(msg) {
-  const msgid = messageIds.get(msg.chat.id) ?? "";
-  var response = ""
-  try {
-    const tempMessage = await bot.sendMessage(msg.chat.id, 'I am organizing my thoughts, please wait a moment.', {reply_to_message_id: msg.message_id});
-    const tempId = tempMessage.message_id;
-    bot.sendChatAction(msg.chat.id, 'typing');
-    if (msgid.includes(",")) {
-      var parentid = msgid.split(',')[0]
-      console.log(parentid);
-      response = await api.sendMessage(msg.text.replace(prefix, ''),{ parentMessageId: parentid })
-    } else {
-      response = await api.sendMessage(msg.text.replace(prefix, ''))
-    }
-    console.log(new Date().toLocaleString(), '--AI response to <', msg.text, '>:', response.text);
-    const newMsgId = response.id + ',' + tempId
-    messageIds.set(msg.chat.id, newMsgId);
-    await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: msg.chat.id, message_id: tempId });
-  } catch (err) {
-    console.log('Error:', err)
-    await bot.sendMessage(msg.chat.id, 'An error has occurred. Please try again later. If you are an administrator, please check the log.');
-    throw err
-  }
+  const [parentId = null, tempId = null] = (messageIds.get(chatId) ?? '').split(',');
+
+  const [response, tempMessage] = await Promise.all([
+    parentId ? api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : api.sendMessage(text.replace(PREFIX, '')),
+    bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId })
+  ]);
+
+  console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
+
+  const newMsgId = `${response.id},${tempMessage.message_id}`;
+  messageIds.set(chatId, newMsgId);
+
+  await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
+
+  setTimeout(() => {
+    messageIds.delete(chatId);
+  }, TIMEOUT);
 }
