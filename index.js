@@ -40,7 +40,9 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
 
   let response, tempMessage;
   try {
-    tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
+    if (retryCount === 0) {
+        tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
+    };
     response = parentId ? await api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : await api.sendMessage(text.replace(PREFIX, ''));
     console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
     await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
@@ -52,7 +54,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
       return;
     } else {
       console.error(`${new Date().toLocaleString()} -- Failed to get AI response after ${RETRY_COUNT} attempts.`);
-      await bot.sendMessage(chatId, ERROR_MSG);
+      await bot.editMessageText(ERROR_MSG, { chat_id: chatId, message_id: tempMessage.message_id });
     }
   }
 
