@@ -40,9 +40,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
 
   let response, tempMessage;
   try {
-    if (retryCount === 0) {
-        tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
-    };
+    tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
     response = parentId ? await api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : await api.sendMessage(text.replace(PREFIX, ''));
     console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
     await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
