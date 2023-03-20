@@ -53,6 +53,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
     } else {
       console.error(`${new Date().toLocaleString()} -- Failed to get AI response after ${RETRY_COUNT} attempts.`);
       await bot.sendMessage(chatId, ERROR_MSG, { reply_to_message_id: messageId });
+      return;
     }
   }
 
