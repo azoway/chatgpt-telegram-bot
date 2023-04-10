@@ -36,7 +36,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
     return;
   }
 
-  const [parentId = null, tempId = null] = (messageIds.get(chatId) ?? '').split(',');
+  const parentId = messageIds.get(chatId)?.split(',')[0] ?? null;
 
   let response, tempMessage;
   try {
@@ -48,7 +48,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
     console.error(`${new Date().toLocaleString()} -- Error in AI response to <${text}>: ${err.message}`);
     if (retryCount < RETRY_COUNT) {
       console.log(`${new Date().toLocaleString()} -- Retrying AI response to <${text}>`);
-      handleMessage({ text, chatId, messageId }, retryCount + 1);
+      await handleMessage({ text, chatId, messageId }, retryCount + 1);
       return;
     } else {
       console.error(`${new Date().toLocaleString()} -- Failed to get AI response after ${RETRY_COUNT} attempts.`);
@@ -57,8 +57,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
     }
   }
 
-  const newMsgId = `${response.id},${tempMessage.message_id}`;
-  messageIds.set(chatId, newMsgId);
+  messageIds.set(chatId, `${response.id},${tempMessage.message_id}`);
 
   setTimeout(() => {
     messageIds.delete(chatId);
