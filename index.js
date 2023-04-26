@@ -13,6 +13,16 @@ const WAITING_MSG = 'I am organizing my thoughts, please wait a moment.';
 const ERROR_MSG = 'An error has occurred. Please try again later. If you are an administrator, please check the log.';
 const RETRY_COUNT = 3;
 
+/* what is each option? check https://platform.openai.com/docs/api-reference/chat/create */
+const completionParams = {
+    model: 'text-davinci-003',
+    temperature: 1,
+    top_p: 1,
+    max_tokens: 256,
+    presence_penalty: 0,
+    frequency_penalty: 0
+};
+
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 const api = new ChatGPTAPI({ apiKey: API_KEY });
 const messageIds = new Map();
@@ -41,7 +51,7 @@ async function handleMessage({ text, chatId, messageId }, retryCount = 0) {
   let response, tempMessage;
   try {
     tempMessage = await bot.sendMessage(chatId, WAITING_MSG, { reply_to_message_id: messageId });
-    response = parentId ? await api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId }) : await api.sendMessage(text.replace(PREFIX, ''));
+    response = parentId ? await api.sendMessage(text.replace(PREFIX, ''), { parentMessageId: parentId, completionParams: completionParams }) : await api.sendMessage(text.replace(PREFIX, ''), { completionParams: completionParams });
     console.log(`${new Date().toLocaleString()} -- AI response to <${text}>: ${response.text}`);
     await bot.editMessageText(response.text, { parse_mode: 'Markdown', chat_id: chatId, message_id: tempMessage.message_id });
   } catch (err) {
